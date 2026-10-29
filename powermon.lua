@@ -19,9 +19,12 @@ local LOG_DIR = os.getenv("HOME") .. "/.hammerspoon/power-logs"
 
 local samples = {}   -- { t, watts, mah }
 local topProcs = {}  -- { { name, power } }
+local totalPower = 0 -- Energy Impact summed over every process, for the % view
 local lastAlert, lastAlertWatts = 0, 0
 local ICON_ONLY_KEY = "powermon.iconOnly"
 local iconOnly = hs.settings.get(ICON_ONLY_KEY) == true -- hide watts/time; icon still turns orange/red
+local SHOW_PERCENT_KEY = "powermon.showPercent"
+local showPercent = hs.settings.get(SHOW_PERCENT_KEY) == true -- process list as share of total
 local updateTitle
 local menu, sampleTimer, topTimer, sleepWatcher
 
@@ -104,7 +107,8 @@ local function buildMenu()
   end
 
   add("-")
-  add("Top energy users (Energy Impact):")
+  add(showPercent and "Top energy users (share of all process activity):"
+    or "Top energy users (Energy Impact score):")
   if #topProcs == 0 then add("   sampling…") end
   -- Right-aligned tab stop lines the numbers up despite the proportional font.
   local rowStyle = {
@@ -112,13 +116,20 @@ local function buildMenu()
     paragraphStyle = { tabStops = { { location = 340, tabStopType = "right" } } },
   }
   for i = 1, math.min(8, #topProcs) do
-    add(hs.styledtext.new(string.format("   %s\t%.1f", topProcs[i].name, topProcs[i].power), rowStyle))
+    local p = topProcs[i]
+    local value = showPercent and totalPower > 0 and string.format("%.0f%%", p.power / totalPower * 100)
+      or string.format("%.1f", p.power)
+    add(hs.styledtext.new("   " .. p.name .. "\t" .. value, rowStyle))
   end
   add("-")
   items[#items + 1] = { title = "Icon only in menu bar", checked = iconOnly, fn = function()
     iconOnly = not iconOnly
     hs.settings.set(ICON_ONLY_KEY, iconOnly)
     updateTitle()
+  end }
+  items[#items + 1] = { title = "Show processes as % of total", checked = showPercent, fn = function()
+    showPercent = not showPercent
+    hs.settings.set(SHOW_PERCENT_KEY, showPercent)
   end }
   add("Open log folder", function() hs.execute("open " .. LOG_DIR) end)
   add("Open Activity Monitor", function() hs.application.launchOrFocus("Activity Monitor") end)
@@ -229,18 +240,22 @@ local function sampleTop()
   -- The first top sample has no power baseline, so take two and parse the last.
   hs.task.new("/usr/bin/top", function(_, out)
     local block = out:match(".*PID%s+POWER%s+COMMAND[^\n]*\n(.*)$") or ""
-    local procs = {}
+    local procs, total = {}, 0
     for pid, power, cmd in block:gmatch("(%d+)%s+([%d%.]+)%s+([^\n]*)") do
       power, cmd = tonumber(power), cmd:gsub("%s+$", "")
-      if power and power >= 0.5 and cmd ~= "top" then
-        procs[#procs + 1] = { pid = pid, power = power, name = cmd }
+      -- Skip top itself: it's our measurement overhead, not real load.
+      if power and cmd ~= "top" then
+        total = total + power
+        if power >= 0.5 and #procs < 12 then
+          procs[#procs + 1] = { pid = pid, power = power, name = cmd }
+        end
       end
     end
     for _, p in ipairs(procs) do p.name = friendlyName(p.pid, p.name) end
-    topProcs = procs
+    topProcs, totalPower = procs, total
     writeLog()
     maybeAlert()
-  end, { "-l", "2", "-s", "2", "-o", "power", "-n", "12", "-stats", "pid,power,command" }):start()
+  end, { "-l", "2", "-s", "2", "-o", "power", "-n", "1000", "-stats", "pid,power,command" }):start()
 end
 
 function M.start()
@@ -263,6 +278,6 @@ function M.start()
   sampleTop()
 end
 
-M.debug = { average = average, alertWatts = alertWatts, samples = function() return samples end, top = function() return topProcs end }
+M.debug = { average = average, alertWatts = alertWatts, samples = function() return samples end, top = function() return topProcs end, total = function() return totalPower end }
 
 return M

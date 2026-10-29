@@ -13,6 +13,7 @@ No sudo, no dependencies beyond Hammerspoon.
   - average watts and predicted time left over the **last 10 min** and **last 1 hr**
   - macOS's own estimate, for comparison
   - top processes by energy impact, with full names (`iOS Simulator: SimMetalHost`, `Claude Helper (Renderer)`, …)
+  - toggle to show each process as a % of all process activity instead of the raw score. Energy Impact is Apple's unitless score, and macOS has no per-process watts, so this is a share of process activity, not of battery: the display, radios and other hardware draw belong to no process.
 - **Alerts:** a notification naming the top 3 processes when the 5-min average passes 20 W, or straight away when the 1-min average passes 35 W. Within one high-drain episode it re-alerts if drain climbs another 10 W, and otherwise reminds every 30 min; the episode resets once drain falls below 15 W.
 - **Log:** one CSV line per minute in `~/.hammerspoon/power-logs/YYYY-MM.csv`: battery %, watts, 10-min average, top 5 processes.
 
