@@ -39,7 +39,27 @@ local function onBattery()
   return hs.battery.powerSource() == "Battery Power"
 end
 
+-- On AC the battery current is ~0 or charging, so battery-side watts say nothing
+-- about the Mac. The battery controller's PowerTelemetryData has SystemPowerIn,
+-- what comes in from the charger (mW). What the Mac uses is that minus what goes
+-- into the battery, taken from the battery's own current and voltage. Not from
+-- SystemLoad/BatteryPower: BatteryPower flips sign when charging starts, and
+-- SystemLoad then adds the charging power instead of subtracting it (77 W
+-- reported for ~13 W of real use).
+local function acTelemetry()
+  local t = (hs.battery._appleSmartBattery() or {}).PowerTelemetryData
+  if not t or not t.SystemPowerIn then return nil end
+  local wallIn = t.SystemPowerIn / 1000
+  local charging = amps() * (hs.battery.voltage() or 0) / 1e6 -- negative if the battery is helping
+  return { wallIn = wallIn, charging = charging, load = math.max(0, wallIn - charging) }
+end
+
+-- Watts the Mac is using: battery draw on battery, charger telemetry on AC.
 local function currentWatts()
+  if not onBattery() then
+    local t = acTelemetry()
+    return t and t.load or 0
+  end
   return math.abs(amps()) * (hs.battery.voltage() or 0) / 1e6
 end
 
@@ -103,7 +123,22 @@ local function buildMenu()
     end
     add("macOS estimate: " .. fmtDuration((hs.battery.timeRemaining() or -1) > 0 and hs.battery.timeRemaining() * 60 or nil))
   else
-    add(string.format("On AC  ·  %d%%%s", pct, hs.battery.isCharging() and " (charging)" or ""))
+    local t = acTelemetry()
+    if t then
+      add(string.format("On AC  ·  %d%%", pct))
+      add(string.format("Mac using: %.1f W", t.load))
+      local avgW, _, covered = average(10 * 60)
+      add(avgW and string.format("Mac using, last 10 min: %.1f W avg%s", avgW, fmtCovered(covered, 10 * 60))
+        or "Mac using, last 10 min: collecting…")
+      if t.charging >= 0.5 then
+        add(string.format("Charging battery: %.1f W", t.charging))
+      elseif t.charging <= -0.5 then
+        add(string.format("Battery helping charger: %.1f W", -t.charging))
+      end
+      add(string.format("From charger: %.1f W", t.wallIn))
+    else
+      add(string.format("On AC  ·  %d%%%s", pct, hs.battery.isCharging() and " (charging)" or ""))
+    end
   end
 
   add("-")
@@ -130,6 +165,15 @@ local function buildMenu()
   items[#items + 1] = { title = "Show processes as % of total", checked = showPercent, fn = function()
     showPercent = not showPercent
     hs.settings.set(SHOW_PERCENT_KEY, showPercent)
+    -- Menus always close on click; reopen it under the icon so the two views can be compared.
+    -- menu:frame() flips y against the focused screen but popupMenu flips against
+    -- the primary one, so with several displays it lands in the wrong place.
+    -- Flip the raw Cocoa frame against the primary screen instead.
+    hs.timer.doAfter(0.05, function()
+      local f = menu:_frame()
+      local h = hs.screen.primaryScreen():fullFrame().h
+      menu:popupMenu({ x = f.x, y = h - f.y })
+    end)
   end }
   add("Open log folder", function() hs.execute("open " .. LOG_DIR) end)
   add("Open Activity Monitor", function() hs.application.launchOrFocus("Activity Monitor") end)
@@ -147,6 +191,7 @@ local function glyph(color)
 end
 
 updateTitle = function()
+  -- On AC just the plain icon: draw there costs no battery. Watts are in the menu.
   if not onBattery() then
     menu:setTitle(glyph())
     return
@@ -175,6 +220,9 @@ local function sample()
   local ma = math.abs(amps())
   if onBattery() and ma > 0 then
     samples[#samples + 1] = { t = now, watts = currentWatts(), ma = ma }
+  elseif not onBattery() and acTelemetry() then
+    -- ma = 0 keeps AC samples out of time-left; history resets on plug/unplug anyway.
+    samples[#samples + 1] = { t = now, watts = currentWatts(), ma = 0 }
   end
   while samples[1] and now - samples[1].t > HISTORY_SECS do table.remove(samples, 1) end
   updateTitle()
@@ -187,10 +235,10 @@ local function writeLog()
   local f = io.open(path, "a")
   if not f then return end
   if isNew then f:write("time,percent,source,watts,avg10m_watts,top_processes\n") end
-  local avg10 = onBattery() and average(10 * 60) or nil
+  local avg10 = average(10 * 60)
   f:write(string.format("%s,%d,%s,%.1f,%s,\"%s\"\n",
     os.date("%Y-%m-%d %H:%M:%S"), hs.battery.percentage() or 0,
-    onBattery() and "battery" or "ac", onBattery() and currentWatts() or 0,
+    onBattery() and "battery" or "ac", currentWatts(),
     avg10 and string.format("%.1f", avg10) or "", topSummary(5)))
   f:close()
 end
