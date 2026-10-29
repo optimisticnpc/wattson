@@ -7,14 +7,19 @@ local M = {}
 local SAMPLE_SECS = 15        -- battery sample interval
 local TOP_SECS = 60           -- process sample + log interval
 local HISTORY_SECS = 60 * 60  -- keep 1 hr of samples
-local ALERT_WATTS = 20        -- alert when the 5-min average is above this...
+local ALERT_WATTS = 20        -- alert when the 5-min average is above this,
 local ALERT_WINDOW = 5 * 60
-local ALERT_COOLDOWN = 30 * 60 -- ...at most once per 30 min
+local SPIKE_WATTS = 35        -- or straight away when the 1-min average is above this
+local ESCALATE_WATTS = 10     -- re-alert if drain climbs this far past the last alert
+local ALERT_COOLDOWN = 30 * 60 -- otherwise remind at most every 30 min while it stays high
+local ALERT_RESET_WATTS = 15  -- episode ends once the 5-min average falls below this
+local WARN_WATTS = 15         -- menu bar text turns orange (1-min average)...
+local HIGH_WATTS = 25         -- ...and red
 local LOG_DIR = os.getenv("HOME") .. "/.hammerspoon/power-logs"
 
 local samples = {}   -- { t, watts, mah }
 local topProcs = {}  -- { { name, power } }
-local lastAlert = 0
+local lastAlert, lastAlertWatts = 0, 0
 local menu, sampleTimer, topTimer, sleepWatcher
 
 -- hs.battery.amperage() can come back as an unsigned wraparound of a negative value.
@@ -118,7 +123,16 @@ local function updateTitle()
   end
   local _, avgMa = average(10 * 60)
   local left = timeLeft(avgMa)
-  menu:setTitle(string.format("%.0fW%s", currentWatts(), left and (" " .. fmtDuration(left)) or ""))
+  local text = string.format("%.0fW%s", currentWatts(), left and (" " .. fmtDuration(left)) or "")
+  -- Colour by the 1-min average so a brief spike doesn't flash the bar.
+  local recent = average(60) or currentWatts()
+  local color = recent >= HIGH_WATTS and { hex = "#FF453A" }
+    or recent >= WARN_WATTS and { hex = "#FF9F0A" } or nil
+  if color then
+    menu:setTitle(hs.styledtext.new(text, { font = { name = ".AppleSystemUIFont", size = 13 }, color = color }))
+  else
+    menu:setTitle(text)
+  end
 end
 
 local function sample()
@@ -145,13 +159,28 @@ local function writeLog()
   f:close()
 end
 
+-- Returns the watts to alert about, or nil. Alerts on sustained drain (5-min
+-- average) or a spike (1-min average); within one high-drain episode, repeats
+-- only if drain climbs ESCALATE_WATTS past the last alert or ALERT_COOLDOWN passes.
+local function alertWatts(avg5, covered5, avg1, now)
+  if avg5 and avg5 < ALERT_RESET_WATTS then lastAlert, lastAlertWatts = 0, 0 end
+  local sustained = avg5 and covered5 >= ALERT_WINDOW * 0.8 and avg5 >= ALERT_WATTS and avg5
+  local spike = avg1 and avg1 >= SPIKE_WATTS and avg1
+  local watts = math.max(sustained or 0, spike or 0)
+  if watts == 0 then return nil end
+  local escalated = watts >= lastAlertWatts + ESCALATE_WATTS
+  if not escalated and now - lastAlert < ALERT_COOLDOWN then return nil end
+  lastAlert, lastAlertWatts = now, watts
+  return watts, spike and not sustained
+end
+
 local function maybeAlert()
-  if not onBattery() or os.time() - lastAlert < ALERT_COOLDOWN then return end
-  local avgW, _, covered = average(ALERT_WINDOW)
-  if not avgW or covered < ALERT_WINDOW * 0.8 or avgW < ALERT_WATTS then return end
-  lastAlert = os.time()
+  if not onBattery() then return end
+  local avg5, _, covered5 = average(ALERT_WINDOW)
+  local watts, isSpike = alertWatts(avg5, covered5, average(60), os.time())
+  if not watts then return end
   hs.notify.new({
-    title = string.format("High battery drain: %.0f W", avgW),
+    title = string.format(isSpike and "Battery drain spike: %.0f W" or "High battery drain: %.0f W", watts),
     informativeText = "Top: " .. topSummary(3),
     withdrawAfter = 0,
   }):send()
@@ -209,6 +238,6 @@ function M.start()
   sampleTop()
 end
 
-M.debug = { average = average, samples = function() return samples end, top = function() return topProcs end }
+M.debug = { average = average, alertWatts = alertWatts, samples = function() return samples end, top = function() return topProcs end }
 
 return M
