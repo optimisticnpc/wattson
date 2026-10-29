@@ -1,4 +1,4 @@
-# hammerspoon-powermon
+# Macbook Battery Monitor
 
 A [Hammerspoon](https://www.hammerspoon.org/) module that shows what Activity Monitor and Battery settings don't: real battery draw in watts, how long the battery will last at your recent rate, and which processes are eating it — including helpers that Activity Monitor groups away (iOS Simulator, browser renderers, etc.).
 
@@ -19,6 +19,7 @@ No sudo, no dependencies beyond Hammerspoon.
 History is cleared after sleep and on plug/unplug, so idle time doesn't make the estimate look better than it is.
 
 ## Install
+**Copy this repo to your AI agent and tell it to install**
 
 ```bash
 curl -o ~/.hammerspoon/powermon.lua https://raw.githubusercontent.com/optimisticnpc/hammerspoon-powermon/main/powermon.lua
