@@ -7,6 +7,7 @@ No sudo, no dependencies beyond Hammerspoon.
 ## What it does
 
 - **Menu bar:** live watts and time left at the last-10-minute rate, e.g. `17W 1:05`. Turns orange above 15 W and red above 25 W (1-min average). Shows ⚡︎ on AC.
+  - **Icon only** (toggle in the menu, remembered across reloads): hides the numbers and shows just ⚡︎, which still turns orange/red, so it's there when you need it without being a distraction.
 - **Menu:**
   - current watts and battery %
   - average watts and predicted time left over the **last 10 min** and **last 1 hr**

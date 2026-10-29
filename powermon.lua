@@ -20,6 +20,9 @@ local LOG_DIR = os.getenv("HOME") .. "/.hammerspoon/power-logs"
 local samples = {}   -- { t, watts, mah }
 local topProcs = {}  -- { { name, power } }
 local lastAlert, lastAlertWatts = 0, 0
+local ICON_ONLY_KEY = "powermon.iconOnly"
+local iconOnly = hs.settings.get(ICON_ONLY_KEY) == true -- hide watts/time; icon still turns orange/red
+local updateTitle
 local menu, sampleTimer, topTimer, sleepWatcher
 
 -- hs.battery.amperage() can come back as an unsigned wraparound of a negative value.
@@ -106,28 +109,42 @@ local function buildMenu()
     add(string.format("   %-28s %5.1f", topProcs[i].name, topProcs[i].power))
   end
   add("-")
+  items[#items + 1] = { title = "Icon only in menu bar", checked = iconOnly, fn = function()
+    iconOnly = not iconOnly
+    hs.settings.set(ICON_ONLY_KEY, iconOnly)
+    updateTitle()
+  end }
   add("Open log folder", function() hs.execute("open " .. LOG_DIR) end)
   add("Open Activity Monitor", function() hs.application.launchOrFocus("Activity Monitor") end)
   return items
 end
 
-local function updateTitle()
+-- 30% larger than the 13pt menu bar font so the glyph doesn't look tiny;
+-- the bigger font rides high, so drop the baseline to re-centre it.
+local function glyph(color)
+  return hs.styledtext.new("⚡︎", {
+    font = { name = ".AppleSystemUIFont", size = 17 },
+    baselineOffset = -2,
+    color = color,
+  })
+end
+
+updateTitle = function()
   if not onBattery() then
-    -- 30% larger than the 13pt menu bar font so the glyph doesn't look tiny;
-    -- the bigger font rides high, so drop the baseline to re-centre it.
-    menu:setTitle(hs.styledtext.new("⚡︎", {
-      font = { name = ".AppleSystemUIFont", size = 17 },
-      baselineOffset = -2,
-    }))
+    menu:setTitle(glyph())
+    return
+  end
+  -- Colour by the 1-min average so a brief spike doesn't flash the bar.
+  local recent = average(60) or currentWatts()
+  local color = recent >= HIGH_WATTS and { hex = "#FF453A" }
+    or recent >= WARN_WATTS and { hex = "#FF9F0A" } or nil
+  if iconOnly then
+    menu:setTitle(glyph(color))
     return
   end
   local _, avgMa = average(10 * 60)
   local left = timeLeft(avgMa)
   local text = string.format("%.0fW%s", currentWatts(), left and (" " .. fmtDuration(left)) or "")
-  -- Colour by the 1-min average so a brief spike doesn't flash the bar.
-  local recent = average(60) or currentWatts()
-  local color = recent >= HIGH_WATTS and { hex = "#FF453A" }
-    or recent >= WARN_WATTS and { hex = "#FF9F0A" } or nil
   if color then
     menu:setTitle(hs.styledtext.new(text, { font = { name = ".AppleSystemUIFont", size = 13 }, color = color }))
   else
