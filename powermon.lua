@@ -108,8 +108,12 @@ end
 
 local function updateTitle()
   if not onBattery() then
-    -- 30% larger than the 13pt menu bar font so the glyph doesn't look tiny.
-    menu:setTitle(hs.styledtext.new("⚡︎", { font = { name = ".AppleSystemUIFont", size = 17 } }))
+    -- 30% larger than the 13pt menu bar font so the glyph doesn't look tiny;
+    -- the bigger font rides high, so drop the baseline to re-centre it.
+    menu:setTitle(hs.styledtext.new("⚡︎", {
+      font = { name = ".AppleSystemUIFont", size = 17 },
+      baselineOffset = -2,
+    }))
     return
   end
   local _, avgMa = average(10 * 60)
