@@ -83,7 +83,8 @@ end
 
 local function buildMenu()
   local items = {}
-  local function add(title, fn) items[#items + 1] = { title = title, fn = fn, disabled = not fn } end
+  -- Info rows stay enabled (just inert): disabled items render too faded to read.
+  local function add(title, fn) items[#items + 1] = { title = title, fn = fn } end
 
   local pct = hs.battery.percentage() or 0
   if onBattery() then
@@ -105,8 +106,13 @@ local function buildMenu()
   add("-")
   add("Top energy users (Energy Impact):")
   if #topProcs == 0 then add("   sampling…") end
+  -- Right-aligned tab stop lines the numbers up despite the proportional font.
+  local rowStyle = {
+    font = { name = ".AppleSystemUIFont", size = 14 },
+    paragraphStyle = { tabStops = { { location = 340, tabStopType = "right" } } },
+  }
   for i = 1, math.min(8, #topProcs) do
-    add(string.format("   %-28s %5.1f", topProcs[i].name, topProcs[i].power))
+    add(hs.styledtext.new(string.format("   %s\t%.1f", topProcs[i].name, topProcs[i].power), rowStyle))
   end
   add("-")
   items[#items + 1] = { title = "Icon only in menu bar", checked = iconOnly, fn = function()
