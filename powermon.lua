@@ -137,8 +137,10 @@ end
 
 local function sample()
   local now = os.time()
-  if onBattery() then
-    samples[#samples + 1] = { t = now, watts = currentWatts(), ma = math.abs(amps()) }
+  -- The gauge reads 0 mA for ~30 s after unplugging; those zeros would drag the averages down.
+  local ma = math.abs(amps())
+  if onBattery() and ma > 0 then
+    samples[#samples + 1] = { t = now, watts = currentWatts(), ma = ma }
   end
   while samples[1] and now - samples[1].t > HISTORY_SECS do table.remove(samples, 1) end
   updateTitle()
