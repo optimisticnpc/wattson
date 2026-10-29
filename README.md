@@ -23,7 +23,7 @@ History is cleared after sleep and on plug/unplug, so idle time doesn't make the
 **Copy this repo to your AI agent and tell it to install**
 
 ```bash
-curl -o ~/.hammerspoon/powermon.lua https://raw.githubusercontent.com/optimisticnpc/hammerspoon-powermon/main/powermon.lua
+curl -o ~/.hammerspoon/powermon.lua https://raw.githubusercontent.com/optimisticnpc/macbook-battery-monitor/main/powermon.lua
 ```
 
 Add to `~/.hammerspoon/init.lua`:
