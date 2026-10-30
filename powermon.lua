@@ -83,6 +83,13 @@ local function timeLeft(avgMa)
   return (hs.battery.capacity() or 0) / avgMa * 3600
 end
 
+-- Energy left in the battery: remaining charge times the present voltage.
+local function fmtPercent(pct)
+  local wh = (hs.battery.capacity() or 0) * (hs.battery.voltage() or 0) / 1e6
+  if wh <= 0 then return string.format("%d%%", pct) end
+  return string.format("%d%% (%.1f Wh)", pct, wh)
+end
+
 local function fmtDuration(secs)
   if not secs then return "–" end
   local h = math.floor(secs / 3600)
@@ -111,7 +118,7 @@ local function buildMenu()
 
   local pct = hs.battery.percentage() or 0
   if onBattery() then
-    add(string.format("Now: %.1f W  ·  %d%%", currentWatts(), pct))
+    add(string.format("Now: %.1f W  ·  %s", currentWatts(), fmtPercent(pct)))
     for _, w in ipairs({ { 10 * 60, "10 min" }, { 60 * 60, "1 hr" } }) do
       local avgW, avgMa, covered = average(w[1])
       if avgW then
@@ -125,7 +132,7 @@ local function buildMenu()
   else
     local t = acTelemetry()
     if t then
-      add(string.format("On AC  ·  %d%%", pct))
+      add(string.format("On AC  ·  %s", fmtPercent(pct)))
       add(string.format("Mac using: %.1f W", t.load))
       local avgW, _, covered = average(10 * 60)
       add(avgW and string.format("Mac using, last 10 min: %.1f W avg%s", avgW, fmtCovered(covered, 10 * 60))
@@ -137,7 +144,7 @@ local function buildMenu()
       end
       add(string.format("From charger: %.1f W", t.wallIn))
     else
-      add(string.format("On AC  ·  %d%%%s", pct, hs.battery.isCharging() and " (charging)" or ""))
+      add(string.format("On AC  ·  %s%s", fmtPercent(pct), hs.battery.isCharging() and " (charging)" or ""))
     end
   end
 

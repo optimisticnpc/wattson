@@ -12,7 +12,7 @@ No sudo, no dependencies beyond Hammerspoon.
 - **Menu bar:** live watts and time left at the last-10-minute rate, e.g. `17W 1:05`. Turns orange above 15 W and red above 25 W (1-min average). Shows a plain ⚡︎ on AC, since draw there costs no battery.
   - **Icon only** (toggle in the menu, remembered across reloads): hides the numbers and shows just ⚡︎, which still turns orange/red, so it's there when you need it without being a distraction.
 - **Menu:**
-  - current watts and battery %
+  - current watts, battery % and watt-hours left
   - average watts and predicted time left over the **last 10 min** and **last 1 hr**
   - macOS's own estimate, for comparison
   - on AC: what the Mac is using (now and 10-min average), what's going into the battery, and what's coming from the charger
