@@ -367,8 +367,9 @@ local function buildMenu()
 
   if #other > 0 then
     local sub = {}
-    for i = 1, math.min(12, #other) do
-      local g = other[i]
+    for _, g in ipairs(other) do
+      -- Rows that would read 0% are noise.
+      if #sub == 12 or share(g) < 0.005 then break end
       sub[#sub + 1] = { title = hintRow(g.label, g.hint, string.format("%.0f%%", share(g) * 100)) }
     end
     items[#items + 1] = {
@@ -578,6 +579,7 @@ M.debug = {
   scheduleQuit = scheduleQuit, heavyApps = function() return heavyApps end, heavyRunning = heavyRunning,
   samples = function() return samples end, top = function() return topProcs end,
   groups = function() return groups end, total = function() return totalPower end,
+  menubar = function() return menu end,
 }
 
 return M

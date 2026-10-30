@@ -8,8 +8,7 @@ A [Hammerspoon](https://www.hammerspoon.org/) module that shows what Activity Mo
 No sudo, no dependencies beyond Hammerspoon.
 
 ## What it does
-<img width="421" height="475" alt="Screenshot 2026-10-30 at 08 13 11" src="https://github.com/user-attachments/assets/d445d624-e12e-40f7-bb5b-672575b5fabb" />
-<img width="400" height="475" alt="image" src="https://github.com/user-attachments/assets/7f9a5305-9b7b-41c5-ab4d-c1371c1bc82b" />
+<img width="550" alt="Wattson menu with the macOS & background submenu open" src="docs/menu.png" />
 
 
 - **Menu bar:** live watts and time left at the last-10-minute rate, e.g. `17W 1:05`. Turns orange above 15 W and red above 25 W (1-min average). Shows a plain ⚡︎ on AC, since draw there costs no battery.
