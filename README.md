@@ -1,4 +1,4 @@
-# Wattson
+# Wattson - Macbook Battery Monitor
 
 A MacBook battery monitor for the menu bar.
 
