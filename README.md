@@ -33,7 +33,7 @@ Energy Impact is Apple's unitless score, and macOS has no per-process watts. The
 **Copy this repo to your AI agent and tell it to install**
 
 ```bash
-curl -o ~/.hammerspoon/wattson.lua https://raw.githubusercontent.com/optimisticnpc/macbook-battery-monitor/main/wattson.lua
+curl -o ~/.hammerspoon/wattson.lua https://raw.githubusercontent.com/optimisticnpc/wattson/main/wattson.lua
 ```
 
 Add to `~/.hammerspoon/init.lua`:
